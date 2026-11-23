@@ -1,7 +1,7 @@
 import random
 import unittest
 
-from behavioral_guard import Baseline, Detector, Store, Window
+from behavioral_guard import Baseline, Detector, Service, Store, Window
 from simulate import make_window
 
 
@@ -53,6 +53,28 @@ class DetectorTests(unittest.TestCase):
         store.delete_all()
         self.assertEqual(store.connection.execute("SELECT count(*) FROM windows").fetchone()[0], 0)
         self.assertEqual(store.connection.execute("SELECT count(*) FROM alerts").fetchone()[0], 0)
+        store.close()
+
+    def test_service_consent_learning_alert_and_delete(self):
+        store = Store(":memory:")
+        service = Service(store)
+        first = make_window(self.rng)
+        self.assertEqual(service.process("t0", first)["status"], "paused")
+        self.assertEqual(store.connection.execute("SELECT count(*) FROM windows").fetchone()[0], 0)
+        service.set_consent(True)
+        service.set_paused(False)
+        for index in range(30):
+            result = service.process(f"t{index}", make_window(self.rng))
+        self.assertEqual(result["progress"], 100)
+        self.assertFalse(service.process("s1", make_window(self.rng, 3))["alert"])
+        result = service.process("s2", make_window(self.rng, 3))
+        self.assertFalse(result["alert"])
+        result = service.process("s3", make_window(self.rng, 3))
+        self.assertTrue(result["alert"])
+        service.feedback(result["alert_id"], "normal")
+        service.delete_all()
+        self.assertEqual(store.connection.execute("SELECT count(*) FROM windows").fetchone()[0], 0)
+        self.assertEqual(service.process("new", make_window(self.rng))["status"], "learning")
         store.close()
 
 
