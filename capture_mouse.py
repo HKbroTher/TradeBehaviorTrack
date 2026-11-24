@@ -1,0 +1,82 @@
+"""Opt-in Windows mouse collection prototype for selected foreground executables.
+
+No keyboard data is collected. Use only for controlled evaluation; password-field
+exclusion and physical mouse-device identification are not implemented.
+"""
+
+import argparse
+from datetime import datetime
+import os
+from pathlib import Path
+import time
+
+from behavioral_guard import Service, Store
+from behavioral_guard.mouse import MouseWindow
+from behavioral_guard.win_mouse import WindowsMouse
+
+
+def hour_band(hour: int) -> str:
+    if 6 <= hour < 12:
+        return "morning"
+    if 12 <= hour < 18:
+        return "afternoon"
+    if 18 <= hour < 24:
+        return "evening"
+    return "night"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--consent", action="store_true", required=True,
+                        help="Confirm explicit consent to mouse feature collection")
+    parser.add_argument("--allow-exe", action="append", required=True,
+                        help="Foreground executable basename to monitor, e.g. trading.exe")
+    parser.add_argument("--window-seconds", type=int, default=60)
+    parser.add_argument("--sample-ms", type=int, default=50)
+    args = parser.parse_args()
+    if os.name != "nt":
+        parser.error("Live mouse collection requires Windows")
+    if args.window_seconds < 10 or args.sample_ms < 20:
+        parser.error("Window must be at least 10 seconds and sampling interval at least 20 ms")
+    allowed = {name.lower() for name in args.allow_exe}
+    data_root = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "BehavioralGuard"
+    data_root.mkdir(parents=True, exist_ok=True)
+    store = Store(data_root / "behavior.sqlite3")
+    service = Service(store)
+    service.set_consent(True)
+    service.set_paused(False)
+    source = WindowsMouse()
+    window = MouseWindow(args.window_seconds)
+    active_exe: str | None = None
+    started = time.monotonic()
+    print("Mouse-only prototype running. Press Ctrl+C to stop. No keyboard data is collected.")
+    try:
+        while True:
+            now = time.monotonic()
+            exe = source.foreground_exe()
+            if exe not in allowed:
+                active_exe = None
+                window.reset()
+                started = now
+            elif exe != active_exe:
+                active_exe = exe
+                window.reset()
+                started = now
+            else:
+                window.sample(now, *source.sample())
+                if now - started >= args.window_seconds:
+                    observed = datetime.now().astimezone()
+                    result = service.process(observed.isoformat(timespec="seconds"),
+                                             window.finish(active_exe, "default_mouse", hour_band(observed.hour)))
+                    print(f"{observed:%H:%M:%S} {active_exe}: {result['status']} score={result['score']} alert={result['alert']}")
+                    window.reset()
+                    started = now
+            time.sleep(args.sample_ms / 1000)
+    except KeyboardInterrupt:
+        print("Stopped.")
+    finally:
+        store.close()
+
+
+if __name__ == "__main__":
+    main()

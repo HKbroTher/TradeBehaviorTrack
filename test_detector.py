@@ -2,6 +2,7 @@ import random
 import unittest
 
 from behavioral_guard import Baseline, Detector, Service, Store, Window
+from behavioral_guard.mouse import MouseWindow
 from simulate import make_window
 
 
@@ -76,6 +77,19 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(store.connection.execute("SELECT count(*) FROM windows").fetchone()[0], 0)
         self.assertEqual(service.process("new", make_window(self.rng))["status"], "learning")
         store.close()
+
+    def test_mouse_samples_produce_aggregate_metrics_only(self):
+        collector = MouseWindow(seconds=10)
+        collector.sample(0.0, 10, 10, False)
+        collector.sample(0.1, 20, 10, True)
+        collector.sample(0.2, 30, 10, False)
+        collector.sample(0.3, 40, 10, True)
+        result = collector.finish("app", "mouse", "day")
+        self.assertEqual(result.metrics["click_rate"], 12)
+        self.assertEqual(result.metrics["mouse_curvature"], 1)
+        self.assertNotIn("x", result.metrics)
+        self.assertNotIn("y", result.metrics)
+        self.assertNotIn("key", result.metrics)
 
 
 if __name__ == "__main__":
