@@ -66,10 +66,23 @@ class Store:
             baseline.add(Window(context, device, hour_band, count, json.loads(metrics)))
         return baseline
 
+    def learning_days(self, key: tuple[str, str, str]) -> int:
+        return self.connection.execute(
+            "SELECT COUNT(DISTINCT SUBSTR(observed_at, 1, 10)) FROM windows "
+            "WHERE baseline_eligible = 1 AND context = ? AND device = ? AND hour_band = ?", key
+        ).fetchone()[0]
+
     def delete_all(self) -> None:
         with self.connection:
             self.connection.execute("DELETE FROM alerts")
             self.connection.execute("DELETE FROM windows")
+
+    def prune_older_than(self, cutoff_date: str) -> int:
+        """Remove windows and their alerts before an ISO calendar date."""
+        with self.connection:
+            cursor = self.connection.execute(
+                "DELETE FROM windows WHERE SUBSTR(observed_at, 1, 10) < ?", (cutoff_date,))
+        return cursor.rowcount
 
     def close(self) -> None:
         self.connection.close()

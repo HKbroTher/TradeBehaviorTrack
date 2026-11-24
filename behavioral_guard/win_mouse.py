@@ -9,6 +9,16 @@ class Point(ctypes.Structure):
     _fields_ = [("x", wintypes.LONG), ("y", wintypes.LONG)]
 
 
+class GuiThreadInfo(ctypes.Structure):
+    _fields_ = [
+        ("cbSize", wintypes.DWORD), ("flags", wintypes.DWORD),
+        ("hwndActive", wintypes.HWND), ("hwndFocus", wintypes.HWND),
+        ("hwndCapture", wintypes.HWND), ("hwndMenuOwner", wintypes.HWND),
+        ("hwndMoveSize", wintypes.HWND), ("hwndCaret", wintypes.HWND),
+        ("rcCaret", wintypes.RECT),
+    ]
+
+
 class WindowsMouse:
     def __init__(self):
         if os.name != "nt":
@@ -21,6 +31,12 @@ class WindowsMouse:
         self.user32.GetAsyncKeyState.restype = ctypes.c_short
         self.user32.GetForegroundWindow.restype = wintypes.HWND
         self.user32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
+        self.user32.GetGUIThreadInfo.argtypes = [wintypes.DWORD, ctypes.POINTER(GuiThreadInfo)]
+        self.user32.GetGUIThreadInfo.restype = wintypes.BOOL
+        self.user32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+        self.user32.GetClassNameW.restype = ctypes.c_int
+        self.user32.GetWindowLongW.argtypes = [wintypes.HWND, ctypes.c_int]
+        self.user32.GetWindowLongW.restype = wintypes.LONG
         self.kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
         self.kernel32.OpenProcess.restype = wintypes.HANDLE
         self.kernel32.QueryFullProcessImageNameW.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.LPWSTR, ctypes.POINTER(wintypes.DWORD)]
@@ -43,6 +59,21 @@ class WindowsMouse:
             return os.path.basename(buffer.value).lower()
         finally:
             self.kernel32.CloseHandle(handle)
+
+    def sensitive_focus(self) -> bool:
+        """Exclude classic password edits; unknown focus state fails closed."""
+        info = GuiThreadInfo()
+        info.cbSize = ctypes.sizeof(info)
+        if not self.user32.GetGUIThreadInfo(0, ctypes.byref(info)):
+            return True
+        if not info.hwndFocus:
+            return True
+        name = ctypes.create_unicode_buffer(256)
+        if not self.user32.GetClassNameW(info.hwndFocus, name, len(name)):
+            return True
+        if name.value.lower() == "edit":
+            return bool(self.user32.GetWindowLongW(info.hwndFocus, -16) & 0x20)
+        return False
 
     def sample(self) -> tuple[int, int, bool]:
         point = Point()

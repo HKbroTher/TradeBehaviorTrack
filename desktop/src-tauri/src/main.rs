@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-  behavioral_guard_lib::run();
+    behavioral_guard_lib::run();
 }

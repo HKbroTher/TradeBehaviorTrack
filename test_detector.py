@@ -56,9 +56,19 @@ class DetectorTests(unittest.TestCase):
         self.assertEqual(store.connection.execute("SELECT count(*) FROM alerts").fetchone()[0], 0)
         store.close()
 
+    def test_retention_deletes_old_alerts_with_windows(self):
+        store = Store(":memory:")
+        old = store.add_window("2026-10-01T00:00:00", make_window(self.rng))
+        store.add_alert(old, 90, [])
+        store.add_window("2026-11-24T00:00:00", make_window(self.rng))
+        self.assertEqual(store.prune_older_than("2026-11-01"), 1)
+        self.assertEqual(store.connection.execute("SELECT count(*) FROM alerts").fetchone()[0], 0)
+        self.assertEqual(store.connection.execute("SELECT count(*) FROM windows").fetchone()[0], 1)
+        store.close()
+
     def test_service_consent_learning_alert_and_delete(self):
         store = Store(":memory:")
-        service = Service(store)
+        service = Service(store, min_learning_days=1)
         first = make_window(self.rng)
         self.assertEqual(service.process("t0", first)["status"], "paused")
         self.assertEqual(store.connection.execute("SELECT count(*) FROM windows").fetchone()[0], 0)
@@ -90,6 +100,20 @@ class DetectorTests(unittest.TestCase):
         self.assertNotIn("x", result.metrics)
         self.assertNotIn("y", result.metrics)
         self.assertNotIn("key", result.metrics)
+
+    def test_default_learning_requires_seven_distinct_days(self):
+        store = Store(":memory:")
+        service = Service(store)
+        service.set_consent(True)
+        for index in range(30):
+            result = service.process(f"2026-11-01T00:{index:02}:00", make_window(self.rng))
+        self.assertEqual(result["status"], "learning")
+        self.assertEqual(result["learning_days"], 1)
+        for day in range(2, 8):
+            result = service.process(f"2026-11-{day:02}T00:00:00", make_window(self.rng))
+        self.assertEqual(result["learning_days"], 7)
+        self.assertNotEqual(service.process("2026-11-08T00:00:00", make_window(self.rng))["status"], "learning")
+        store.close()
 
 
 if __name__ == "__main__":

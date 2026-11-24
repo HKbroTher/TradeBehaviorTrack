@@ -5,7 +5,7 @@ exclusion and physical mouse-device identification are not implemented.
 """
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import time
@@ -41,7 +41,10 @@ def main() -> None:
     allowed = {name.lower() for name in args.allow_exe}
     data_root = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "BehavioralGuard"
     data_root.mkdir(parents=True, exist_ok=True)
+    stop_file = data_root / "stop-monitoring"
+    stop_file.unlink(missing_ok=True)  # Explicit new consent starts a new session.
     store = Store(data_root / "behavior.sqlite3")
+    store.prune_older_than((datetime.now().date() - timedelta(days=30)).isoformat())
     service = Service(store)
     service.set_consent(True)
     service.set_paused(False)
@@ -52,9 +55,12 @@ def main() -> None:
     print("Mouse-only prototype running. Press Ctrl+C to stop. No keyboard data is collected.")
     try:
         while True:
+            if stop_file.exists():
+                print("Monitoring stopped by the desktop application.")
+                break
             now = time.monotonic()
             exe = source.foreground_exe()
-            if exe not in allowed:
+            if exe not in allowed or source.sensitive_focus():
                 active_exe = None
                 window.reset()
                 started = now
@@ -65,6 +71,8 @@ def main() -> None:
             else:
                 window.sample(now, *source.sample())
                 if now - started >= args.window_seconds:
+                    if stop_file.exists():
+                        break
                     observed = datetime.now().astimezone()
                     result = service.process(observed.isoformat(timespec="seconds"),
                                              window.finish(active_exe, "default_mouse", hour_band(observed.hour)))

@@ -5,8 +5,11 @@ from .store import Store
 
 
 class Service:
-    def __init__(self, store: Store):
+    def __init__(self, store: Store, min_learning_days: int = 7):
+        if min_learning_days < 1:
+            raise ValueError("min_learning_days must be positive")
         self.store = store
+        self.min_learning_days = min_learning_days
         self.detector = Detector(store.load_baseline())
         self.consent = False
         self.paused = False
@@ -25,11 +28,16 @@ class Service:
         if window.sensitive:
             return {"status": "sensitive", "score": None, "alert": False, "reasons": []}
         count = self.detector.baseline.count(window.key)
-        if count < MIN_WINDOWS:
+        days = self.store.learning_days(window.key)
+        if count < MIN_WINDOWS or days < self.min_learning_days:
             if not window.transition and window.activity_count >= 5:
                 self.store.add_window(observed_at, window, baseline_eligible=True)
                 self.detector.baseline.add(window)
-            return {"status": "learning", "progress": min(100, round(100 * self.detector.baseline.count(window.key) / MIN_WINDOWS)),
+                days = self.store.learning_days(window.key)
+            window_progress = min(1.0, self.detector.baseline.count(window.key) / MIN_WINDOWS)
+            day_progress = min(1.0, days / self.min_learning_days)
+            return {"status": "learning", "progress": round(100 * min(window_progress, day_progress)),
+                    "learning_days": days, "required_days": self.min_learning_days,
                     "score": None, "alert": False, "reasons": []}
         result = self.detector.score(window)
         if result["status"] != "insufficient_data":
