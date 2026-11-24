@@ -21,3 +21,5 @@ The `desktop/` directory now contains a Tauri 2 + React + TypeScript shell with 
 The desktop dashboard reads this same local database and shows learning days and recent alerts. Feedback can be recorded, and the delete action signals the standalone collector to stop before removing its data. A Windows GitHub Actions workflow runs Python checks, builds the frontend and checks the Tauri Rust project. It is a build check, not a substitute for an interactive Windows privacy and performance test.
 
 Run `python evaluate.py` for a deterministic synthetic false-alert and persistent-change check. These numbers do not estimate performance in actual trading sessions.
+
+See `WINDOWS_VALIDATION.md` for the standard-user Windows smoke procedure and privacy checks. The short `smoke_windows.py` check keeps samples in memory and writes no database.
