@@ -78,7 +78,7 @@ def main() -> None:
                         break
                     observed = datetime.now().astimezone()
                     result = service.process(observed.isoformat(timespec="seconds"),
-                                             window.finish(active_exe, "default_mouse", hour_band(observed.hour)))
+                                             window.finish(f"{active_exe}:{args.window_seconds}s", "default_mouse", hour_band(observed.hour)))
                     print(f"{observed:%H:%M:%S} {active_exe}: {result['status']} score={result['score']} alert={result['alert']}")
                     window.reset()
                     started = now
