@@ -1,7 +1,7 @@
 """Opt-in Windows mouse collection prototype for selected foreground executables.
 
-No keyboard data is collected. Use only for controlled evaluation; password-field
-exclusion and physical mouse-device identification are not implemented.
+No keyboard data is collected. Use only for controlled evaluation; custom
+password-field exclusion and physical mouse-device identification are pending.
 """
 
 import argparse
@@ -61,6 +61,8 @@ def main() -> None:
             now = time.monotonic()
             exe = source.foreground_exe()
             if exe not in allowed or source.sensitive_focus():
+                if active_exe is not None:
+                    print(f"Discarded partial window after {now - started:.1f}s: foreground changed or focus excluded")
                 active_exe = None
                 window.reset()
                 started = now
@@ -68,6 +70,7 @@ def main() -> None:
                 active_exe = exe
                 window.reset()
                 started = now
+                print(f"Approved foreground: {active_exe}; collecting {args.window_seconds}s window")
             else:
                 window.sample(now, *source.sample())
                 if now - started >= args.window_seconds:
@@ -81,6 +84,8 @@ def main() -> None:
                     started = now
             time.sleep(args.sample_ms / 1000)
     except KeyboardInterrupt:
+        if active_exe is not None:
+            print(f"Stopped with partial window after {time.monotonic() - started:.1f}s; no partial window saved")
         print("Stopped.")
     finally:
         store.close()
