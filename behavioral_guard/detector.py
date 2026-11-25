@@ -10,7 +10,7 @@ from statistics import median
 from typing import Mapping
 
 GROUPS = {
-    "mouse_motion": ("mouse_speed", "mouse_curvature", "mouse_pause_ratio"),
+    "mouse_motion": ("mouse_speed", "mouse_turning", "mouse_pause_ratio"),
     "mouse_click": ("click_rate", "click_interval_cv"),
     "keyboard_rhythm": ("key_interval", "key_dwell", "typing_pause_ratio"),
 }

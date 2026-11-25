@@ -8,6 +8,8 @@ This repository currently contains a platform-independent scoring prototype. Run
 
 The detector uses a separate baseline for each application category, device and time band. Each metric is compared with its personal median and median absolute deviation. Correlated metrics are grouped; the largest deviation in a group represents that group. An alert requires at least two groups above a provisional robust-Z threshold of 2.5 in two of the last three windows, including the current window. Five-window cooldown limits repeat alerts. Insufficient baseline data, low activity, sensitive contexts and transitions suppress scoring.
 
+Mouse turning is calculated from local changes in direction, weighted by movement distance. Its value is bounded between 1 and 1 + π. The earlier whole-window path-to-endpoint ratio could grow arbitrarily when the cursor returned near its start; the old `mouse_curvature` field is no longer used for scoring.
+
 These thresholds are engineering defaults for simulation and must be calibrated on real, consented data. The 0–100 display value is relative behavioral deviation, not a probability of stress or a diagnosis. Windows marked normal by user feedback may later be reviewed for baseline updates; this prototype does not update a baseline automatically.
 
 Research inputs: Killourhy & Maxion (DSN 2009) studied fixed-password identity detection; Epp et al. (CHI 2011) studied typing rhythms and self-reported emotion; Naegelin et al. (Journal of Biomedical Informatics 2023, DOI 10.1016/j.jbi.2023.104299) studied mouse and keyboard features in a simulated office. None supplies a validated alert cutoff for this product.

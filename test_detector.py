@@ -1,3 +1,4 @@
+import math
 import random
 import unittest
 
@@ -96,10 +97,19 @@ class DetectorTests(unittest.TestCase):
         collector.sample(0.3, 40, 10, True)
         result = collector.finish("app", "mouse", "day")
         self.assertEqual(result.metrics["click_rate"], 12)
-        self.assertEqual(result.metrics["mouse_curvature"], 1)
+        self.assertEqual(result.metrics["mouse_turning"], 1)
         self.assertNotIn("x", result.metrics)
         self.assertNotIn("y", result.metrics)
         self.assertNotIn("key", result.metrics)
+
+    def test_return_to_start_has_bounded_turning(self):
+        collector = MouseWindow(seconds=10)
+        collector.sample(0.0, 0, 0, False)
+        collector.sample(0.1, 100, 0, False)
+        collector.sample(0.2, 0, 0, False)
+        value = collector.finish("app", "mouse", "day").metrics["mouse_turning"]
+        self.assertGreater(value, 1)
+        self.assertLessEqual(value, 1 + math.pi)
 
     def test_default_learning_requires_seven_distinct_days(self):
         store = Store(":memory:")

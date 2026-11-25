@@ -7,7 +7,7 @@ from behavioral_guard import Baseline, Detector, Window
 def make_window(rng: random.Random, shift: float = 0) -> Window:
     return Window("trading", "mouse_keyboard_a", "day", 50, {
         "mouse_speed": 100 + rng.gauss(0, 6) + shift * 35,
-        "mouse_curvature": 1.5 + rng.gauss(0, .1),
+        "mouse_turning": 1.5 + rng.gauss(0, .1),
         "click_rate": 12 + rng.gauss(0, 1) + shift * 7,
         "key_interval": 180 + rng.gauss(0, 10) - shift * 45,
     })
